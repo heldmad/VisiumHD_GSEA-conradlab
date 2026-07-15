@@ -47,3 +47,35 @@ library(celldex)
 library(SingleR)
 library("org.Hs.eg.db", character.only = TRUE)
 library(enrichplot)
+
+
+# Loading in VisiumHD data (for Seurat purposes)
+localdir <- '~/Desktop/spatial_analysis/MK22R-4_combined_out/008um/binned_outputs/square_008um/'
+list.files(localdir)
+MK22R4_combined <- Load10X_Spatial(data.dir = localdir, 
+                                   filename = 'filtered_feature_bc_matrix.h5', 
+                                   assay = "spatial", 
+                                   slice = "slice1", 
+                                   filter.matrix = TRUE)
+
+# Set default assays to 'spatial'
+Assays(MK22R4_combined)
+DefaultAssay(MK22R4_combined) <- 'spatial'
+
+# Visualize initial data
+vln.plot <- VlnPlot(MK22R4_combined, features = "nCount_spatial", pt.size = 0) + theme(axis.text = element_text(size = 4)) + NoLegend()
+count.plot <- SpatialFeaturePlot(MK22R4_combined, features = "nCount_spatial", image.scale = "hires") + theme(legend.position = "right") #image.scale = "hires"
+vln.plot | count.plot
+
+# Update the default image to the hires one (for easier visualization in the future)
+hires_image <- EBImage::readImage("~/Desktop/spatial_analysis/MK22R-4_combined_out/008um/spatial/tissue_hires_image.png")
+# Assign it to the image slot in your Seurat object
+DefaultAssay(MK22R4_combined) <- "spatial"
+MK22R4_combined@images$slice1@image <- hires_image
+MK22R4_combined@images$slice1@scale.factors
+
+# Normalize the data
+MK22R4 <- NormalizeData(MK22R4_combined)
+MK22R4 <- FindVariableFeatures(MK22R4)
+MK22R4 <- ScaleData(MK22R4)
+MK22R4 <- subset(MK22R4, subset = nCount_spatial > 0) #remove NA to do SCT transform
