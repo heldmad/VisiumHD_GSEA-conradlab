@@ -48,7 +48,7 @@ new_TERM2GENE <- new_TERM2GENE %>%
   filter(TERM != "NA")
 
 
-## USING WHOLE LUNG DEGs 
+## Whole Lung DGEs GSEA
 # filtering out high p-value and low L2FC genes
 
 #set seed
@@ -84,3 +84,45 @@ readable_wholelung_gsea <- setReadable(wholelung_gsea, OrgDb = "org.Hs.eg.db", k
 df_wholelung_gsea <- readable_wholelung_gsea@result
 gseaplot2(wholelung_gsea, df_wholelung_gsea[, 1])
 cnetplot(readable_wholelung_gsea)
+
+
+# Repeat the process above with all organs in the slide
+# Download CSV with DGEs for that organ and read it into this file
+
+
+# Heart as another example
+all_genes_wholeheart <- read.csv("~/Desktop/MK22R-4_heartvsall.csv", header = TRUE)
+all_genes_wholeheart <- all_genes_wholeheart %>%
+  dplyr::select(FeatureName, heart_QCd.Log2.Fold.Change, heart_QCd.P.Value)
+
+# filtering out high p-value and low L2FC genes
+#create a vector for whole lung DEGs
+filtered_wholeheart <- all_genes_wholeheart %>%
+  filter(heart_QCd.Log2.Fold.Change > 0.5 | heart_QCd.Log2.Fold.Change < -0.5,
+         heart_QCd.P.Value < 0.25)
+filtered_wholeheart <- filtered_wholeheart %>%
+  dplyr::select(SYMBOL = FeatureName, 
+                L2FC = heart_QCd.Log2.Fold.Change, 
+                PVal_Adj = heart_QCd.P.Value)
+filtered_wholeheart_entrez <- select(org.Hs.eg.db,
+                                    keys = filtered_wholeheart$SYMBOL,
+                                    columns = c("ENTREZID", "ENSEMBL"),
+                                    keytype = "SYMBOL")
+filtered_wholeheartlist <- left_join(filtered_wholeheart, filtered_wholeheart_entrez, by = "SYMBOL")
+filtered_wholeheartlist <- filtered_wholeheartlist[!duplicated(filtered_wholeheartlist[,1]), ]
+filtered_wholeheartlist <- na.omit(filtered_wholeheartlist)
+allgenesList_whf <- filtered_wholeheartlist[,2]
+names(allgenesList_whf) <- as.character(filtered_wholeheartlist[,4])
+allgenesList_whf <- sort(allgenesList_whf, decreasing = TRUE)
+
+wholeheart_gsea <- GSEA(geneList = allgenesList_whf,
+                       TERM2GENE = new_TERM2GENE,
+                       minGSSize = 1,
+                       maxGSSize = 7000,
+                       pvalueCutoff = 0.25,
+                       seed = TRUE,
+                       scoreType = "pos")
+readable_wholeheart_gsea <- setReadable(wholeheart_gsea, OrgDb = "org.Hs.eg.db", keyType = "ENTREZID")
+df_wholeheart_gsea <- readable_wholeheart_gsea@result
+gseaplot2(wholeheart_gsea, df_wholeheart_gsea[, 1])
+cnetplot(readable_wholeheart_gsea)
